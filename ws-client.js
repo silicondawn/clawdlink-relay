@@ -8,19 +8,17 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
-const https = require('https');
-
 // --- Config ---
 const RELAY_WS_URL = process.env.RELAY_WS_URL || 'ws://127.0.0.1:19900';
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8377247019';
+const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:18789';
+const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN;
 const IDENTITY_PATH = path.join(process.env.HOME, '.clawdbot/clawdlink/identity.json');
 const FRIENDS_PATH = path.join(process.env.HOME, '.clawdbot/clawdlink/friends.json');
 const RECONNECT_DELAY = 5000;
 const PING_INTERVAL = 30000;
 
-if (!TELEGRAM_BOT_TOKEN) {
-  console.error('TELEGRAM_BOT_TOKEN env required');
+if (!GATEWAY_TOKEN) {
+  console.error('GATEWAY_TOKEN env required');
   process.exit(1);
 }
 
@@ -60,30 +58,37 @@ function findFriendByHexKey(hexKey) {
   return friends.find(f => base64ToHex(f.publicKey).toLowerCase() === needle);
 }
 
-// --- Telegram Bot API ---
+// --- Gateway tools/invoke API ---
 function sendNotification(message) {
-  const body = JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'Markdown' });
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const urlObj = new URL(url);
+  // Inject into agent session via gateway tools/invoke
+  const body = JSON.stringify({
+    tool: 'sessions_send',
+    args: { message, sessionKey: 'agent:main:main' }
+  });
+  const urlObj = new URL('/tools/invoke', GATEWAY_URL);
   const options = {
     hostname: urlObj.hostname,
+    port: urlObj.port,
     path: urlObj.pathname,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GATEWAY_TOKEN}`,
       'Content-Length': Buffer.byteLength(body),
     },
   };
-  const req = https.request(options, (res) => {
+  const req = http.request(options, (res) => {
     let data = '';
     res.on('data', c => data += c);
     res.on('end', () => {
       if (res.statusCode !== 200) {
-        console.error(`Telegram ${res.statusCode}: ${data}`);
+        console.error(`Gateway ${res.statusCode}: ${data}`);
+      } else {
+        console.log('Injected into agent session');
       }
     });
   });
-  req.on('error', e => console.error('Telegram error:', e.message));
+  req.on('error', e => console.error('Gateway error:', e.message));
   req.write(body);
   req.end();
 }
