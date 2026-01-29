@@ -1,0 +1,17 @@
+{
+  "name": "clawdlink-relay",
+  "version": "1.0.0",
+  "description": "ClawdLink local relay server (WebSocket + HTTP fallback)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "better-sqlite3": "^11.7.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
+  }
+}

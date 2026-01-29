@@ -1,0 +1,15 @@
+[Unit]
+Description=ClawdLink Relay Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/yibo/clawd/clawdlink-relay
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=RELAY_PORT=19900
+Environment=RELAY_HOST=0.0.0.0
+
+[Install]
+WantedBy=default.target

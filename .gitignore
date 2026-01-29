@@ -1,0 +1,4 @@
+node_modules/
+relay.db
+*.db-wal
+*.db-shm
