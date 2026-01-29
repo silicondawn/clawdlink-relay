@@ -60,10 +60,11 @@ function findFriendByHexKey(hexKey) {
 
 // --- Gateway tools/invoke API ---
 function sendNotification(message) {
-  // Inject into agent session via gateway tools/invoke
+  // Inject into agent main session via sessions_send
+  // Fire-and-forget: set a short timeout so daemon doesn't block
   const body = JSON.stringify({
     tool: 'sessions_send',
-    args: { message, sessionKey: 'agent:main:main' }
+    args: { message, sessionKey: 'agent:main:main', timeoutSeconds: 5 }
   });
   const urlObj = new URL('/tools/invoke', GATEWAY_URL);
   const options = {
@@ -71,6 +72,7 @@ function sendNotification(message) {
     port: urlObj.port,
     path: urlObj.pathname,
     method: 'POST',
+    timeout: 10000,
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${GATEWAY_TOKEN}`,
@@ -88,7 +90,13 @@ function sendNotification(message) {
       }
     });
   });
-  req.on('error', e => console.error('Gateway error:', e.message));
+  req.on('timeout', () => {
+    console.log('Gateway request timeout (agent processing async)');
+    req.destroy();
+  });
+  req.on('error', e => {
+    if (e.code !== 'ECONNRESET') console.error('Gateway error:', e.message);
+  });
   req.write(body);
   req.end();
 }
@@ -207,7 +215,13 @@ function handleMessage(msg) {
   }
 
   console.log(`Message from ${name}: ${text}`);
-  sendNotification(`📨 ClawdLink from ${name}: ${text}`);
+  // Parse the decrypted content - it's JSON with .text field
+  let displayText = text;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.text) displayText = parsed.text;
+  } catch {}
+  sendNotification(`[ClawdLink] ${name}: ${displayText}`);
 }
 
 function cleanup() {
